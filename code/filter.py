@@ -245,5 +245,3 @@ class ParticleFilter:
         self.x = x
         self.particles = particles
         return x, particles
-
-

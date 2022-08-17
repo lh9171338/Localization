@@ -1,10 +1,15 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy
 from filter import ExtendedKalmanFilter, ParticleFilter
+from util import calc_error, calc_rmse
 
 
 if __name__ == '__main__':
+    save_path = '../figure'
+    os.makedirs(save_path, exist_ok=True)
+
     # 生成模型参数
     s1 = np.array([0, 0], dtype=np.float32)
     s2 = np.array([200, 0], dtype=np.float32)
@@ -23,8 +28,6 @@ if __name__ == '__main__':
     x0 = np.array([100, 100], dtype=np.float32)
     ts = np.arange(N)[..., None]
     xs = np.matmul(ts, v[None]) + x0[None]
-    xs = np.vstack((xs, xs))
-    N *= 2
     zs1 = np.sqrt(((xs - s1[None]) ** 2).sum(axis=1))
     zs2 = np.sqrt(((xs - s2[None]) ** 2).sum(axis=1))
     zs3 = np.sqrt(((xs - s3[None]) ** 2).sum(axis=1))
@@ -80,11 +83,29 @@ if __name__ == '__main__':
     for i in range(N):
         plt.xlim(xlim)
         plt.ylim(ylim)
-        plt.scatter(particlesList[i, :100, 0], particlesList[i, :100, 1], color='m', s=5)
         plt.plot(xs[:i + 1, 0], xs[:i + 1, 1], '-r', linewidth=1)
         plt.plot(xs1[:i + 1, 0], xs1[:i + 1, 1], '-b', linewidth=1)
         plt.plot(xs2[:i + 1, 0], xs2[:i + 1, 1], '-m', linewidth=1)
-        plt.legend(['Ground truth', 'Kalman filter', 'Particle filter'], loc='upper left', fontsize=10)
-        plt.ion()
-        plt.pause(0.1)
-        plt.clf()
+        plt.scatter(particlesList[i, :100, 0], particlesList[i, :100, 1], color='k', s=5)
+        plt.legend(['Ground truth', 'Extended Kalman filter', 'Particle filter', 'Particles'], loc='upper left',
+                   fontsize=10)
+        if i < N - 1:
+            plt.ion()
+            plt.pause(0.1)
+            plt.clf()
+        else:
+            plt.ioff()
+            plt.savefig(os.path.join(save_path, 'nonlinear-value.png'), bbox_inches='tight')
+
+    kalman_rmse = calc_rmse(xs1[N//2:], xs[N//2:])
+    particle_rmse = calc_rmse(xs2[N//2:], xs[N//2:])
+    print(f'RMSE: Extended Kalman filter: {kalman_rmse:.3f} Particle filter: {particle_rmse:.3f}')
+
+    kalman_error = calc_error(xs1, xs)
+    particle_error = calc_error(xs2, xs)
+    plt.figure()
+    plt.plot(ts, kalman_error, '-b', linewidth=1)
+    plt.plot(ts, particle_error, '-m', linewidth=1)
+    plt.legend(['Extended Kalman filter error', 'Particle filter error'], loc='upper left', fontsize=10)
+    plt.savefig(os.path.join(save_path, 'nonlinear-error.png'), bbox_inches='tight')
+    plt.show()

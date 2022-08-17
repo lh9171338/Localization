@@ -1,17 +1,22 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from filter import KalmanFilter, ParticleFilter
+from util import calc_error, calc_rmse
 
 
 if __name__ == '__main__':
+    save_path = '../figure'
+    os.makedirs(save_path, exist_ok=True)
+
     # 生成模型参数
     dimx = 4
     dimz = 2
     F = np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
     G = np.zeros((4, 1), dtype=np.float32)
     H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float32)
-    Q = 10 * np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
-    R = 20 * np.eye(dimz, dtype=np.float32)
+    Q = 1 * np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
+    R = 100 * np.eye(dimz, dtype=np.float32)
 
     # 生成真实数据
     np.random.seed(0)
@@ -20,8 +25,6 @@ if __name__ == '__main__':
     x0 = np.array([2, 2], dtype=np.float32)
     ts = np.arange(N)[..., None]
     xs = np.matmul(ts, v[None]) + x0[None]
-    xs = np.vstack((xs, xs))
-    N *= 2
     noise = np.matmul(np.random.randn(xs.shape[0], xs.shape[1]), np.sqrt(R))
     zs = xs + noise
 
@@ -63,12 +66,34 @@ if __name__ == '__main__':
     for i in range(N):
         plt.xlim(xlim)
         plt.ylim(ylim)
-        plt.scatter(particlesList[i, :100, 0], particlesList[i, :100, 1], color='m', s=5)
         plt.plot(xs[:i + 1, 0], xs[:i + 1, 1], '-r', linewidth=1)
         plt.plot(zs[:i + 1, 0], zs[:i + 1, 1], '-g', linewidth=1)
         plt.plot(xs1[:i + 1, 0], xs1[:i + 1, 1], '-b', linewidth=1)
         plt.plot(xs2[:i + 1, 0], xs2[:i + 1, 1], '-m', linewidth=1)
-        plt.legend(['Ground truth', 'Measured value', 'Kalman filter', 'Particle filter'], loc='upper left', fontsize=10)
-        plt.ion()
-        plt.pause(0.1)
-        plt.clf()
+        plt.scatter(particlesList[i, :100, 0], particlesList[i, :100, 1], color='k', s=5)
+        plt.legend(['Ground truth', 'Measured value', 'Kalman filter', 'Particle filter', 'Particle'], loc='upper left',
+                   fontsize=10)
+        if i < N - 1:
+            plt.ion()
+            plt.pause(0.1)
+            plt.clf()
+        else:
+            plt.ioff()
+            plt.savefig(os.path.join(save_path, 'linear-value.png'), bbox_inches='tight')
+
+    measure_rmse = calc_rmse(zs, xs)
+    kalman_rmse = calc_rmse(xs1, xs)
+    particle_rmse = calc_rmse(xs2, xs)
+    print(f'RMSE: measure: {measure_rmse:.3f} kalman: {kalman_rmse:.3f} particle: {particle_rmse:.3f}')
+
+    measure_error = calc_error(zs, xs)
+    kalman_error = calc_error(xs1, xs)
+    particle_error = calc_error(xs2, xs)
+    plt.figure()
+    plt.plot(ts, measure_error, '-g', linewidth=1)
+    plt.plot(ts, kalman_error, '-b', linewidth=1)
+    plt.plot(ts, particle_error, '-m', linewidth=1)
+    plt.legend(['Measured error', 'Kalman error', 'Particle error'], loc='upper left', fontsize=10)
+    plt.savefig(os.path.join(save_path, 'linear-error.png'), bbox_inches='tight')
+    plt.show()
+
